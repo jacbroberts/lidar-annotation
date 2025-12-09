@@ -1,0 +1,20 @@
+{
+  "input": "[{object=car, x=20, y=1,z=0}, {object=person, x=25, y=2,z=0}]:",
+  "target": "A car and a person are close to each other."
+}
+{
+  "input": "[{object=truck, x=20, y=1,z=0}, {object=person, x=25, y=2,z=0}]:",
+  "target": "A truck and a person are close to each other."
+}
+{
+  "input": "[{object=building, x=20, y=1,z=0}, {object=person, x=25, y=2,z=0}]:",
+  "target": "A building and a person are close to each other."
+}
+{
+  "input": "[{object=painting, x=2, y=1,z=2}, {object=person, x=3, y=2,z=1}, {object=coffee table, x=5, y=-2,z=0}]:",
+  "target": "A painting is on the wall. There is a person nearby with a coffee table to the left."
+}
+{
+  "input": "[{object=truck, x=20, y=1,z=0}, {object=person, x=25, y=2,z=3}]:",
+  "target": "A person is on top of a truck."
+}
