@@ -1,0 +1,78 @@
+active_dataset: newer_college
+datasets:
+  kitti:
+    name: KITTI Odometry
+    root_dir: ./data/kitti
+    size: ~65GB
+    type: outdoor
+    sensors:
+    - camera
+    - lidar
+    url: http://www.cvlibs.net/datasets/kitti/eval_odometry.php
+    components:
+    - odometry_color
+    - odometry_velodyne
+    - odometry_calib
+    - odometry_poses
+  tum_rgbd:
+    name: TUM RGB-D
+    root_dir: ./data/tum_rgbd
+    size: ~1-2GB per sequence
+    type: indoor
+    sensors:
+    - rgb_camera
+    - depth_camera
+    url: https://cvg.cit.tum.de/data/datasets/rgbd-dataset
+    sequences:
+    - freiburg1/rgbd_dataset_freiburg1_xyz
+    - freiburg1/rgbd_dataset_freiburg1_desk
+  icl_nuim:
+    name: ICL-NUIM
+    root_dir: ./data/icl_nuim
+    size: ~500MB
+    type: synthetic
+    sensors:
+    - rgb_camera
+    - depth_camera
+    url: https://www.doc.ic.ac.uk/~ahanda/VaFRIC/iclnuim.html
+    sequences:
+    - living_room_traj0_frei_png
+    - living_room_traj1_frei_png
+  euroc:
+    name: EuRoC MAV
+    root_dir: ./data/euroc
+    size: ~5-10GB per sequence
+    type: outdoor
+    sensors:
+    - stereo_camera
+    - imu
+    url: https://projects.asl.ethz.ch/datasets/doku.php?id=kmavvisualinertialdatasets
+    sequences:
+    - MH_01_easy
+  newer_college:
+    name: Newer College
+    root_dir: ./data/newer_college
+    size: ~5-10GB
+    type: outdoor
+    sensors:
+    - camera
+    - lidar
+    - imu
+    url: https://ori-drs.github.io/newer-college-dataset/
+    sequences:
+    - 01_short_experiment
+download_options:
+  chunk_size: 1048576
+  max_retries: 5
+  retry_delay: 5
+  timeout:
+    connect: 10
+    read: 300
+  resume_downloads: true
+  extract_after_download: true
+  cleanup_archives: false
+processing:
+  convert_to_common_format: true
+  extract_images: true
+  extract_point_clouds: true
+  generate_timestamps: true

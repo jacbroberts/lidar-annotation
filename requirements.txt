@@ -1,0 +1,43 @@
+# Core Dependencies
+# PyTorch with CUDA support - install from PyTorch official site for GPU version
+# For CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+# For CUDA 12.1: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+# For CPU only: pip install torch torchvision
+torch>=2.0.0
+torchvision>=0.15.0
+numpy>=1.24.0
+scipy>=1.10.0
+scikit-learn>=1.2.0
+
+# 3D Point Cloud Processing
+open3d>=0.17.0
+plyfile>=0.7.4
+
+# Data Handling
+pandas>=2.0.0
+h5py>=3.8.0
+pyyaml>=6.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+tqdm>=4.65.0
+
+# Model-specific
+transformers>=4.30.0
+timm>=0.9.0
+einops>=0.6.1
+
+# Utilities
+requests>=2.31.0
+pillow>=9.5.0
+opencv-python>=4.8.0
+
+# Hugging Face stuff
+accelerate
+huggingface_hub[hf_xet]
+bitsandbytes
+
+# Optional: For advanced NLP models
+# sentence-transformers>=2.2.0
+# openai>=0.27.0  # If using GPT-based models

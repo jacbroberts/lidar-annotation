@@ -1,0 +1,62 @@
+# Default Configuration for SLAM Dataset Annotation Pipeline
+
+# Dataset Configuration
+dataset:
+  name: "kitti_odometry"
+  root_dir: "./data/kitti"
+  sequence: "00"  # Which sequence to process
+  download_components:
+    - "odometry_velodyne"  # Point clouds
+    - "odometry_calib"      # Calibration
+    - "odometry_poses"      # Ground truth poses
+    # - "odometry_color"    # Images (optional, large download)
+
+# Preprocessing Configuration
+preprocessing:
+  filter_range:
+    x_min: -50.0
+    x_max: 50.0
+    y_min: -50.0
+    y_max: 50.0
+    z_min: -3.0
+    z_max: 10.0
+  voxel_downsample: true
+  voxel_size: 0.05  # meters
+  compute_normals: false
+  normalize: true
+
+# Segmentation Model Configuration
+segmentation:
+  model_type: "salsanext"  # Options: heuristic, simple, randlanet, cylinder3d, salsanext
+  num_classes: 20
+  checkpoint_path: 'models\weights\SalsaNext.pth'
+  batch_size: 4
+  min_object_points: 150  # Minimum points to consider as object
+
+# NLP Model Configuration
+nlp:
+  model_type: "llama"  # Options: llama, simple, pointllm, ll3da
+  checkpoint_path: null
+  generate_scene_description: false  # Disabled for performance - generated on-demand
+  generate_object_descriptions: false  # Disabled for performance - generated on-demand in viewer
+
+# Visualization Configuration
+visualization:
+  enabled: true
+  show_2d: false
+  show_3d: true  
+  save_figures: false
+  output_dir: "./outputs"
+
+# Processing Configuration
+processing:
+  device: "cuda"  # Options: cuda, cpu
+  num_scans: 5  # Number of scans to process (-1 for all)
+  start_index: 0  # Starting scan index
+
+# Output Configuration
+output:
+  save_annotations: true
+  save_segmented_objects: true
+  annotation_format: "json"  # Options: json, txt
+  output_dir: "./outputs"

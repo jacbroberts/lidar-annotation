@@ -1,0 +1,58 @@
+# Default Configuration for SLAM Dataset Annotation Pipeline
+
+# Dataset Configuration
+dataset:
+  name: "tum_rgbd"
+  root_dir: "./data/tum_rgbd"
+  sequence: "rgbd_dataset_freiburg1_desk"  # Which sequence to process
+
+
+# Preprocessing Configuration
+preprocessing:
+  filter_range:
+    x_min: -50.0
+    x_max: 50.0
+    y_min: -50.0
+    y_max: 50.0
+    z_min: -3.0
+    z_max: 10.0
+  voxel_downsample: true
+  voxel_size: 0.05  # meters
+  compute_normals: false
+  normalize: true
+
+# Segmentation Model Configuration
+segmentation:
+  model_type: "simple"  # Options: simple, randlanet, cylinder3d
+  num_classes: 20
+  checkpoint_path: null
+  batch_size: 1
+  min_object_points: 50  # Minimum points to consider as object
+
+# NLP Model Configuration
+nlp:
+  model_type: "simple"  # Options: simple, pointllm, ll3da
+  checkpoint_path: null
+  generate_scene_description: true
+  generate_object_descriptions: true
+
+# Visualization Configuration
+visualization:
+  enabled: true
+  show_2d: true
+  show_3d: true  # Interactive 3D viewer with Open3D
+  save_figures: true
+  output_dir: "./outputs"
+
+# Processing Configuration
+processing:
+  device: "cuda"  # Options: cuda, cpu
+  num_scans: 5  # Number of scans to process (-1 for all)
+  start_index: 0  # Starting scan index
+
+# Output Configuration
+output:
+  save_annotations: true
+  save_segmented_objects: true
+  annotation_format: "txt"  # Options: json, txt
+  output_dir: "./outputs"
