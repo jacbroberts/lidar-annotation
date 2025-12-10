@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Core Dependencies
 # PyTorch with CUDA support - install from PyTorch official site for GPU version
 # For CUDA 11.8: pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
@@ -41,3 +42,9 @@ bitsandbytes
 # Optional: For advanced NLP models
 # sentence-transformers>=2.2.0
 # openai>=0.27.0  # If using GPT-based models
+=======
+datasets==4.4.1
+peft==0.18.0
+torch==2.9.1+cu130
+transformers==4.57.3
+>>>>>>> fd97142df193b3635fd7f654cc0cff04b8e253e7
