@@ -261,6 +261,9 @@ class InteractiveAnnotationViewer:
         self.scene = gui.SceneWidget()
         self.scene.scene = rendering.Open3DScene(self.window.renderer)
 
+        # Set dark background (matching quick_start.py viewer)
+        self.scene.scene.set_background([0.05, 0.05, 0.05, 1.0])  # Dark gray background
+
         # Add coordinate frame for reference
         coord_frame = o3d.geometry.TriangleMesh.create_coordinate_frame(size=5.0, origin=[0, 0, 0])
         coord_mat = rendering.MaterialRecord()
@@ -317,7 +320,40 @@ class InteractiveAnnotationViewer:
             "- P: Previous object"
         )
         self.info_panel.add_child(instructions)
-        self.info_panel.add_fixed(15)
+        self.info_panel.add_fixed(10)
+
+        # Add color legend (simplified - no unicode)
+        legend_header = gui.Label("CLASS DISTRIBUTION:")
+        self.info_panel.add_child(legend_header)
+        self.info_panel.add_fixed(3)
+
+        # Build color legend from unique labels
+        unique_labels = np.unique(self.labels)
+        label_counts = {}
+        for label in unique_labels:
+            count = np.sum(self.labels == label)
+            label_counts[label] = count
+
+        # Create legend text with class names and counts
+        from models.segmentation_model import KITTI_CLASS_NAMES
+        legend_text = ""
+        # Sort by percentage (descending) for better readability
+        sorted_labels = sorted(unique_labels, key=lambda l: label_counts[l], reverse=True)
+        for label in sorted_labels:
+            class_name = KITTI_CLASS_NAMES.get(int(label), f'class_{int(label)}')
+            count = label_counts[label]
+            percentage = 100.0 * count / len(self.labels)
+            # Simple text format without unicode
+            legend_text += f"{class_name}: {percentage:.1f}%\n"
+
+        legend_label = gui.Label(legend_text)
+        self.info_panel.add_child(legend_label)
+        self.info_panel.add_fixed(10)
+
+        # Separator
+        separator_legend = gui.Label("------------------------------")
+        self.info_panel.add_child(separator_legend)
+        self.info_panel.add_fixed(5)
 
         # Selected object header
         self.selected_header = gui.Label("=== SELECTED OBJECT ===")

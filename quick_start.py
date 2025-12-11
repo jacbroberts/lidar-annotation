@@ -18,8 +18,9 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from utils.point_cloud_utils import PointCloudProcessor
 from utils.visualization import Visualizer
-from models.segmentation_model import SimpleSegmentationModel
-from models.nlp_model import SimpleNLPModel
+from models.segmentation_model import create_segmentation_model
+from models.nlp_model import create_nlp_model
+import yaml
 
 
 def create_synthetic_data():
@@ -89,15 +90,48 @@ def quick_demo():
     points, true_labels = create_synthetic_data()
     print(f"  Generated {len(points)} points")
 
-    # Step 2: Initialize models
-    print("\n[2/5] Initializing models...")
+    # Step 2: Load configuration and initialize models
+    print("\n[2/5] Loading configuration and initializing models...")
+
+    # Load config
+    config_path = Path('./configs/default_config.yaml')
+    if config_path.exists():
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+    else:
+        print("  Warning: Config file not found, using defaults")
+        config = {
+            'segmentation': {'model_type': 'salsanext', 'num_classes': 20, 'checkpoint_path': 'models/weights/SalsaNext.pth', 'min_object_points': 150},
+            'nlp': {'model_type': 'llama', 'checkpoint_path': None},
+            'processing': {'device': 'cuda'}
+        }
+
+    # Initialize components
     processor = PointCloudProcessor()
-    seg_model = SimpleSegmentationModel(num_classes=20, device='cpu')
-    nlp_model = SimpleNLPModel(device='cpu')
     visualizer = Visualizer()
 
-    print("  Segmentation model: SimplePointNet (random weights)")
-    print("  NLP model: Rule-based descriptor")
+    # Create segmentation model
+    seg_config = config.get('segmentation', {})
+    device = config.get('processing', {}).get('device', 'cpu')
+
+    seg_model = create_segmentation_model(
+        model_type=seg_config.get('model_type', 'salsanext'),
+        num_classes=seg_config.get('num_classes', 20),
+        device=device,
+        checkpoint_path=seg_config.get('checkpoint_path')
+    )
+
+    # Create NLP model
+    nlp_config = config.get('nlp', {})
+    nlp_model = create_nlp_model(
+        model_type=nlp_config.get('model_type', 'llama'),
+        device=device,
+        checkpoint_path=nlp_config.get('checkpoint_path')
+    )
+
+    print(f"  Segmentation model: {seg_config.get('model_type', 'salsanext')}")
+    print(f"  NLP model: {nlp_config.get('model_type', 'llama')}")
+    print(f"  Device: {device}")
 
     # Step 3: Preprocess
     print("\n[3/5] Preprocessing point cloud...")
@@ -120,7 +154,18 @@ def quick_demo():
 
     # Extract objects
     print("  Extracting objects...")
-    objects = seg_model.extract_objects(points_filtered, labels_to_use, min_points=50)
+    min_points = config.get('segmentation', {}).get('min_object_points', 150)
+    clustering_config = config.get('segmentation', {}).get('clustering', None)
+    merging_config = config.get('segmentation', {}).get('merging', None)
+    relabel_merged = config.get('segmentation', {}).get('relabel_merged', True)
+    objects = seg_model.extract_objects(
+        points_filtered,
+        labels_to_use,
+        min_points=min_points,
+        clustering_config=clustering_config,
+        merging_config=merging_config,
+        relabel_merged=relabel_merged
+    )
     print(f"  Extracted {len(objects)} objects")
 
     # Step 5: NLP Annotation
@@ -153,6 +198,9 @@ def quick_demo():
 
     print("\nGenerating visualizations...")
 
+    # Get class names from segmentation model for legend
+    class_names = seg_model.class_names
+
     # 2D Bird's eye view
     save_path_2d = output_dir / 'scene_birdseye.png'
     visualizer.visualize_segmentation_results(
@@ -168,18 +216,18 @@ def quick_demo():
         points_filtered,
         labels_to_use,
         title="Quick Demo - Segmented Point Cloud (3D View)",
-        save_path=str(save_path_3d)
+        save_path=str(save_path_3d),
+        class_names=class_names
     )
 
     # Interactive 3D viewer (Open3D)
-    print("\nLaunching interactive 3D viewer...")
-    print("  - Use mouse to rotate view")
-    print("  - Scroll to zoom")
-    print("  - Close window to continue")
+    print("\nLaunching interactive 3D viewer with improved controls...")
     visualizer.visualize_with_open3d(
         points_filtered,
         labels_to_use,
-        window_name="Quick Demo - Interactive 3D Viewer"
+        window_name="Quick Demo - Interactive 3D Viewer",
+        class_names=class_names,
+        show_legend=True
     )
 
     print(f"\nVisualizations saved to: {output_dir}")

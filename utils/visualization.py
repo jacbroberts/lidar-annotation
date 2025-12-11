@@ -234,29 +234,55 @@ class Visualizer:
     @staticmethod
     def visualize_with_open3d(points: np.ndarray,
                               labels: Optional[np.ndarray] = None,
-                              window_name: str = "Point Cloud Viewer"):
+                              window_name: str = "Point Cloud Viewer",
+                              class_names: Optional[Dict[int, str]] = None,
+                              show_legend: bool = True):
         """
-        Interactive visualization using Open3D
+        Interactive visualization using Open3D with improved controls and legend
 
         Args:
             points: Point cloud array (N, 3+)
             labels: Semantic labels (N,)
             window_name: Window title
+            class_names: Dictionary mapping label IDs to class names
+            show_legend: Whether to print legend and controls to console
+
+        Controls:
+            - Mouse Left: Rotate
+            - Mouse Right: Pan
+            - Mouse Wheel: Zoom
+            - Ctrl + Mouse Left: Pan (alternative)
+            - Q/ESC: Quit
+            - R: Reset view
+            - +/-: Increase/decrease point size
+            - H: Print help
         """
         pcd = o3d.geometry.PointCloud()
         pcd.points = o3d.utility.Vector3dVector(points[:, :3])
 
+        # Build legend information
+        legend_info = []
+
         if labels is not None:
             # Map labels to colors
             colors = np.zeros((len(labels), 3))
-            for label in np.unique(labels):
+            unique_labels = np.unique(labels)
+
+            for label in unique_labels:
                 mask = labels == label
                 if label in Visualizer.SEMANTIC_COLORS:
-                    colors[mask] = np.array(Visualizer.SEMANTIC_COLORS[label]) / 255.0
+                    color_rgb = np.array(Visualizer.SEMANTIC_COLORS[label]) / 255.0
+                    colors[mask] = color_rgb
                 else:
                     # Random color for unknown labels
                     np.random.seed(int(label))
-                    colors[mask] = np.random.rand(3)
+                    color_rgb = np.random.rand(3)
+                    colors[mask] = color_rgb
+
+                # Build legend entry
+                class_name = class_names.get(int(label), f'Class {int(label)}') if class_names else f'Class {int(label)}'
+                count = np.sum(mask)
+                legend_info.append((label, class_name, color_rgb, count))
 
             pcd.colors = o3d.utility.Vector3dVector(colors)
         elif points.shape[1] > 3:
@@ -266,15 +292,65 @@ class Visualizer:
             colors = plt.cm.viridis(intensity_norm)[:, :3]
             pcd.colors = o3d.utility.Vector3dVector(colors)
 
-        # Create visualizer
+        # Print legend and controls
+        if show_legend:
+            print("\n" + "="*70)
+            print(" Open3D Point Cloud Viewer - Controls")
+            print("="*70)
+            print("\n📋 CAMERA CONTROLS:")
+            print("  Mouse Left Button + Drag       : Rotate view")
+            print("  Mouse Right Button + Drag      : Pan (translate)")
+            print("  Mouse Wheel / Middle Button    : Zoom in/out")
+            print("  Ctrl + Mouse Left + Drag       : Pan (alternative)")
+            print("  Shift + Mouse Left + Drag      : Roll view")
+            print("\n⌨️  KEYBOARD SHORTCUTS:")
+            print("  Q or ESC                       : Quit viewer")
+            print("  R                              : Reset camera to default view")
+            print("  +  (or =)                      : Increase point size")
+            print("  -  (or _)                      : Decrease point size")
+            print("  H                              : Print this help again")
+            print("  Double Click on Point          : Set rotation center")
+
+            if legend_info:
+                print("\n🎨 COLOR LEGEND:")
+                # Sort by label ID
+                legend_info.sort(key=lambda x: x[0])
+                for label_id, class_name, color, count in legend_info:
+                    # Create color block using RGB
+                    r, g, b = [int(c * 255) for c in color]
+                    color_block = f"\033[48;2;{r};{g};{b}m   \033[0m"
+                    percentage = 100.0 * count / len(labels)
+                    print(f"  {color_block}  {class_name:20s} ({label_id:2d}): {count:6d} points ({percentage:5.1f}%)")
+
+            print("="*70 + "\n")
+
+        # Create visualizer with custom settings
         vis = o3d.visualization.Visualizer()
-        vis.create_window(window_name=window_name)
+        vis.create_window(window_name=window_name, width=1920, height=1080)
         vis.add_geometry(pcd)
 
         # Set viewing options
         opt = vis.get_render_option()
         opt.point_size = 2.0
-        opt.background_color = np.asarray([0.1, 0.1, 0.1])
+        opt.background_color = np.asarray([0.05, 0.05, 0.05])  # Dark gray background
+        opt.show_coordinate_frame = True  # Show XYZ axes
+
+        # Set better initial camera view (bird's eye view at 45 degrees)
+        ctr = vis.get_view_control()
+
+        # Calculate scene center and extent
+        bbox = pcd.get_axis_aligned_bounding_box()
+        center = bbox.get_center()
+        extent = bbox.get_extent()
+        max_extent = np.max(extent)
+
+        # Set camera to look at the scene from a good angle
+        # Position camera at 45-degree angle, slightly elevated
+        distance = max_extent * 2.0
+        ctr.set_front([0.5, 0.5, -0.7])  # Look direction
+        ctr.set_lookat(center)
+        ctr.set_up([0, 0, 1])  # Z is up
+        ctr.set_zoom(0.5)
 
         vis.run()
         vis.destroy_window()

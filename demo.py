@@ -148,10 +148,16 @@ class AnnotationPipeline:
         # Extract objects
         print("  Extracting objects...")
         min_points = self.config['segmentation']['min_object_points']
+        clustering_config = self.config['segmentation'].get('clustering', None)
+        merging_config = self.config['segmentation'].get('merging', None)
+        relabel_merged = self.config['segmentation'].get('relabel_merged', True)
         objects = self.seg_model.extract_objects(
             points_processed,
             labels,
-            min_points=min_points
+            min_points=min_points,
+            clustering_config=clustering_config,
+            merging_config=merging_config,
+            relabel_merged=relabel_merged
         )
         print(f"  Extracted {len(objects)} objects")
 

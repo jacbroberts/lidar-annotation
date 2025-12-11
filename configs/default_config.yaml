@@ -31,7 +31,48 @@ segmentation:
   num_classes: 20
   checkpoint_path: 'models\weights\SalsaNext.pth'
   batch_size: 4
-  min_object_points: 150  # Minimum points to consider as object
+  min_object_points: 50  # Minimum points to consider as object (reduced from 150 for better small object detection)
+
+  # Clustering parameters for object extraction (DBSCAN)
+  # These control how segmented points are grouped into individual object instances
+  clustering:
+    # Vehicle clustering (cars, trucks, other-vehicles)
+    vehicles:
+      eps: 0.8  # Distance threshold in meters (reduced for tighter clustering)
+      min_samples: 15  # Minimum points per cluster (reduced from 20)
+
+    # Ground/surface clustering (road, sidewalk, terrain, parking)
+    ground:
+      eps: 2.5  # Larger eps to keep ground surfaces coherent (reduced from 3.0)
+      min_samples: 80  # Reduced from 100
+
+    # Large structures (buildings, vegetation)
+    structures:
+      eps: 1.5  # Medium tolerance (reduced from 2.0)
+      min_samples: 40  # Reduced from 50
+
+    # People and cyclists
+    people:
+      eps: 0.6  # Tighter clustering (reduced from 0.8)
+      min_samples: 8  # Reduced from 10
+
+    # Vertical thin objects (poles, trunks)
+    vertical:
+      eps: 0.4  # Very tight (reduced from 0.5)
+      min_samples: 8  # Reduced from 10
+
+    # Default for other classes
+    default:
+      eps: 0.8  # Reduced from 1.0
+      min_samples: 12  # Reduced from 15
+
+  # Object merging parameters (fixes multi-class fragmentation)
+  merging:
+    iou_threshold: 0.2  # 3D IoU threshold for merging (reduced from 0.3 for more aggressive merging)
+    distance_threshold: 1.5  # Centroid distance threshold in meters (reduced from 2.0)
+
+  # Point relabeling after merging (fixes multi-color objects in visualization)
+  relabel_merged: true  # Re-label points in merged objects to have consistent colors
 
 # NLP Model Configuration
 nlp:
@@ -43,7 +84,7 @@ nlp:
 # Visualization Configuration
 visualization:
   enabled: true
-  show_2d: false
+  show_2d: true
   show_3d: true  
   save_figures: false
   output_dir: "./outputs"

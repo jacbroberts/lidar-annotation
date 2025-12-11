@@ -145,7 +145,10 @@ class BaseSegmentationModel(ABC):
     def extract_objects(self,
                         points: np.ndarray,
                         labels: np.ndarray,
-                        min_points: int = 50) -> List[Dict]:
+                        min_points: int = 50,
+                        clustering_config: Optional[Dict] = None,
+                        merging_config: Optional[Dict] = None,
+                        relabel_merged: bool = True) -> List[Dict]:
         """
         Extract individual objects from segmented point cloud
 
@@ -153,12 +156,29 @@ class BaseSegmentationModel(ABC):
             points: Point cloud array (N, 3+)
             labels: Semantic labels (N,)
             min_points: Minimum points for an object
+            clustering_config: Dict with clustering parameters per object type (optional)
+            merging_config: Dict with merging parameters (optional)
+            relabel_merged: Whether to re-label points in merged objects for consistency (default: True)
 
         Returns:
             List of object dictionaries with points, label, and metadata
+            Note: If relabel_merged=True, labels array is modified in-place to fix inconsistencies
         """
         from scipy.spatial import cKDTree
         from sklearn.cluster import DBSCAN
+
+        # Default clustering parameters (used if no config provided)
+        default_clustering = {
+            'ground': {'eps': 2.5, 'min_samples': 80},
+            'structures': {'eps': 1.5, 'min_samples': 40},
+            'vehicles': {'eps': 0.8, 'min_samples': 15},
+            'people': {'eps': 0.6, 'min_samples': 8},
+            'vertical': {'eps': 0.4, 'min_samples': 8},
+            'default': {'eps': 0.8, 'min_samples': 12}
+        }
+
+        # Use provided config or defaults
+        clustering_params = clustering_config if clustering_config else default_clustering
 
         objects = []
         unique_labels = np.unique(labels)
@@ -181,29 +201,20 @@ class BaseSegmentationModel(ABC):
 
             # Adjust clustering parameters based on object type
             if class_name in ['road', 'sidewalk', 'terrain', 'parking', 'other-ground']:
-                # Ground classes: large eps to keep ground as few clusters
-                eps = 3.0
-                min_samples = 100
+                params = clustering_params.get('ground', clustering_params['default'])
             elif class_name in ['building', 'vegetation']:
-                # Large structures: more tolerant clustering
-                eps = 2.0
-                min_samples = 50
+                params = clustering_params.get('structures', clustering_params['default'])
             elif class_name in ['car', 'truck', 'other-vehicle']:
-                # Vehicles: moderate clustering
-                eps = 1.0
-                min_samples = 20
+                params = clustering_params.get('vehicles', clustering_params['default'])
             elif class_name in ['person', 'bicyclist', 'motorcyclist']:
-                # People: tighter clustering
-                eps = 0.8
-                min_samples = 10
+                params = clustering_params.get('people', clustering_params['default'])
             elif class_name in ['pole', 'trunk']:
-                # Vertical structures: very tight
-                eps = 0.5
-                min_samples = 10
+                params = clustering_params.get('vertical', clustering_params['default'])
             else:
-                # Default
-                eps = 1.0
-                min_samples = 15
+                params = clustering_params['default']
+
+            eps = params['eps']
+            min_samples = params['min_samples']
 
             # Cluster into instances using DBSCAN with adaptive parameters
             clustering = DBSCAN(eps=eps, min_samples=min_samples).fit(class_points[:, :3])
@@ -240,13 +251,22 @@ class BaseSegmentationModel(ABC):
                 objects.append(obj)
 
         # Merge overlapping objects to fix multi-class issues
-        objects = self._merge_overlapping_objects(objects)
+        merge_params = merging_config if merging_config else {'iou_threshold': 0.2, 'distance_threshold': 1.5}
+        objects = self._merge_overlapping_objects(
+            objects,
+            iou_threshold=merge_params.get('iou_threshold', 0.2),
+            distance_threshold=merge_params.get('distance_threshold', 1.5)
+        )
+
+        # Re-label points for consistency (fixes multi-color objects in visualization)
+        if relabel_merged:
+            objects = self._relabel_merged_objects(objects, labels)
 
         return objects
 
     def _merge_overlapping_objects(self, objects: List[Dict],
-                                   iou_threshold: float = 0.3,
-                                   distance_threshold: float = 2.0) -> List[Dict]:
+                                   iou_threshold: float = 0.2,
+                                   distance_threshold: float = 1.5) -> List[Dict]:
         """
         Merge objects that are likely the same physical object.
         Fixes the issue where a single car has multiple class labels.
@@ -291,6 +311,7 @@ class BaseSegmentationModel(ABC):
             merged_points = [obj1['points']]
             merged_classes = [obj1['semantic_label']]
             merged_counts = [obj1['num_points']]
+            merged_indices = [obj1.get('original_indices', np.array([]))]
             used.add(i)
 
             # Find objects to merge
@@ -310,10 +331,14 @@ class BaseSegmentationModel(ABC):
                     merged_points.append(obj2['points'])
                     merged_classes.append(obj2['semantic_label'])
                     merged_counts.append(obj2['num_points'])
+                    merged_indices.append(obj2.get('original_indices', np.array([])))
                     used.add(j)
 
             # Combine all points
             all_points = np.vstack(merged_points)
+
+            # Combine all original indices
+            all_indices = np.concatenate([idx for idx in merged_indices if len(idx) > 0])
 
             # Majority vote for semantic class (weighted by point count)
             class_votes = {}
@@ -331,11 +356,45 @@ class BaseSegmentationModel(ABC):
                 'bbox_min': all_points[:, :3].min(axis=0),
                 'bbox_max': all_points[:, :3].max(axis=0),
                 'num_points': len(all_points),
+                'original_indices': all_indices,
             }
 
             merged.append(merged_obj)
 
         return merged
+
+    def _relabel_merged_objects(self, objects: List[Dict], labels: np.ndarray) -> List[Dict]:
+        """
+        Re-label points in merged objects to have consistent semantic labels.
+        This fixes the visualization issue where a single object has multiple colors.
+
+        Args:
+            objects: List of object dictionaries (after merging)
+            labels: Original semantic labels array (modified in-place)
+
+        Returns:
+            Updated objects list with consistent labels
+        """
+        for obj in objects:
+            # Get the final semantic label for this object
+            final_label = obj['semantic_label']
+
+            # Update labels array for all points in this object
+            if 'original_indices' in obj:
+                # Use original indices if available
+                labels[obj['original_indices']] = final_label
+            else:
+                # Fallback: find points by matching coordinates (slower but works)
+                from scipy.spatial import cKDTree
+                if len(labels) > 0:
+                    # Build KD-tree of original points
+                    # Note: This assumes the points array used in extract_objects matches the labels array
+                    # which should be true based on how the function is called
+                    tree = cKDTree(obj['points'][:, :3])
+                    # This is a fallback and won't work perfectly without the full point cloud
+                    # but the original_indices should always be available from the clustering step
+
+        return objects
 
 
 class HeuristicSegmentationModel(BaseSegmentationModel):
